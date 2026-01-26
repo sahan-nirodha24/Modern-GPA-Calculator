@@ -1,0 +1,44 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x]
+
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Use Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v3
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+        
+    - name: Install Dependencies
+      run: npm ci
+      
+    - name: Run Linter
+      run: npm run lint
+      
+    - name: Build Project
+      run: npm run build
+      env:
+        # We use dummy values here just to check if build passes syntax checks.
+        # Real env vars for deployment should be set in Vercel.
+        VITE_FIREBASE_API_KEY: "dummy_key"
+        VITE_FIREBASE_AUTH_DOMAIN: "dummy_domain"
+        VITE_FIREBASE_DATABASE_URL: "dummy_url"
+        VITE_FIREBASE_PROJECT_ID: "dummy_id"
+        VITE_FIREBASE_STORAGE_BUCKET: "dummy_bucket"
+        VITE_FIREBASE_MESSAGING_SENDER_ID: "dummy_sender"
+        VITE_FIREBASE_APP_ID: "dummy_app_id"
+        VITE_FIREBASE_MEASUREMENT_ID: "dummy_measurement"
