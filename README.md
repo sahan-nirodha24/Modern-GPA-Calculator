@@ -2,9 +2,6 @@
 
 A modern, comprehensive Grade Point Average (GPA) management application built for university students. Track your academic progress, visualize your performance history, and generate printable transcripts with a premium, glassmorphism-inspired UI.
 
-![Project Preview](https://via.placeholder.com/800x400?text=GPA+Calculator+Dashboard)
-*(Replace with actual screenshot of your Dashboard)*
-
 ## ✨ Features
 
 - **📊 Interactive Dashboard**: Visualizes your GPA progression over semesters using dynamic area charts.
