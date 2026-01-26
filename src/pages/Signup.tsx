@@ -58,7 +58,7 @@ export const Signup: React.FC = () => {
 
             navigate('/dashboard');
         } catch (error) {
-            const err = error as any;
+            const err = error as { code?: string; message?: string };
             console.error(err);
             if (err.code === 'auth/email-already-in-use') {
                 setError("This email is already registered. Please login instead.");

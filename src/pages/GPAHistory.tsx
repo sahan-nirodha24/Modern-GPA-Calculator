@@ -21,11 +21,14 @@ export const GPAHistory: React.FC = () => {
         onValue(recordsRef, (snapshot) => {
             const data = snapshot.val();
             if (data) {
-                const list: GPARecord[] = Object.entries(data).map(([key, val]: [string, any]) => ({
-                    id: key,
-                    ...val,
-                    credits: val.courses ? val.courses.reduce((acc: number, c: Course) => acc + c.credits, 0) : 0
-                }));
+                const list: GPARecord[] = Object.entries(data).map(([key, val]: [string, unknown]) => {
+                    const record = val as GPARecord;
+                    return {
+                        ...record,
+                        id: key,
+                        credits: record.courses ? record.courses.reduce((acc: number, c: Course) => acc + c.credits, 0) : 0
+                    };
+                });
                 // Sort by timestamp desc
                 list.sort((a, b) => b.timestamp - a.timestamp);
                 setRecords(list);

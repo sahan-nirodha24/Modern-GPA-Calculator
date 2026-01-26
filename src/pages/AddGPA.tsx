@@ -101,7 +101,7 @@ export const AddGPA: React.FC = () => {
 
             alert(`Saved! GPA: ${gpa}`);
             navigate('/dashboard');
-        } catch (error: any) { // Type assertion handling needed if any removed, but keeping simple for now
+        } catch (error) {
             console.error(error);
             const err = error as Error;
             alert("Failed to save: " + err.message);

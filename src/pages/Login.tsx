@@ -37,8 +37,7 @@ export const Login: React.FC = () => {
             await signInWithEmailAndPassword(auth, email, password);
             navigate('/dashboard', { state: { loginSuccess: true } });
         } catch (error) {
-            const err = error as any;
-            console.error(err);
+            const err = error as { code?: string; message?: string };
             if (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
                 setError("Invalid email or password. Please check your credentials.");
             } else if (err.code === 'auth/too-many-requests') {
