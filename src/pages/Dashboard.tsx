@@ -9,12 +9,14 @@ import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
 import { ref, onValue } from 'firebase/database';
 
+import type { UserProfile, GPARecord, Course } from '../types.ts';
+
 export const Dashboard: React.FC = () => {
     const navigate = useNavigate();
     const location = useLocation();
     const { currentUser } = useAuth();
-    const [profile, setProfile] = useState<any>(null);
-    const [records, setRecords] = useState<any[]>([]);
+    const [profile, setProfile] = useState<UserProfile | null>(null);
+    const [records, setRecords] = useState<GPARecord[]>([]);
 
     const [showLoginSuccess, setShowLoginSuccess] = useState(false);
 
@@ -23,7 +25,7 @@ export const Dashboard: React.FC = () => {
     const [totalCredits, setTotalCredits] = useState(0);
     const [maxCredits, setMaxCredits] = useState(120);
     const [progress, setProgress] = useState(0);
-    const [chartData, setChartData] = useState<any[]>([]);
+    const [chartData, setChartData] = useState<{ year: string; gpa: number }[]>([]);
 
     useEffect(() => {
         if (location.state?.loginSuccess) {
@@ -56,23 +58,23 @@ export const Dashboard: React.FC = () => {
         onValue(recordsRef, (snapshot) => {
             const data = snapshot.val();
             if (data) {
-                const loadedRecords = Object.values(data);
+                const loadedRecords: GPARecord[] = Object.values(data);
                 // Sort by timestamp descending (newest first)
-                loadedRecords.sort((a: any, b: any) => b.timestamp - a.timestamp);
+                loadedRecords.sort((a, b) => b.timestamp - a.timestamp);
                 setRecords(loadedRecords);
 
                 // Calculate Stats
                 // let totalPoints = 0; // Unused for now
                 let credits = 0;
-                let gpaBySem: any[] = []; // Simple implementation, can be improved
+                let gpaBySem: { year: string; gpa: number }[] = []; // Simple implementation, can be improved
 
-                loadedRecords.forEach((rec: any) => {
+                loadedRecords.forEach((rec) => {
                     /* In a real app we'd recalculate everything accurately, 
                        here we just sum up averages for demo or parse */
                     // This part requires proper calculation logic reuse
                     // For now, let's just assume records have pre-calculated GPA or we calculate weighted avg
 
-                    rec.courses.forEach((c: any) => {
+                    rec.courses.forEach((c: Course) => {
                         // We need point values here which we might not have stored directly or need to lookup
                         // Simplified: assuming we stored enough info or just aggregating credits
                         credits += c.credits;
@@ -85,7 +87,7 @@ export const Dashboard: React.FC = () => {
                 // Mocking current GPA update based on last record for simplicity in this step
                 if (loadedRecords.length > 0) {
                     // logic to calc cumulative gpa
-                    const cumulativeGPA = (loadedRecords.reduce((acc: number, curr: any) => acc + curr.gpa, 0) / loadedRecords.length).toFixed(2);
+                    const cumulativeGPA = (loadedRecords.reduce((acc, curr) => acc + curr.gpa, 0) / loadedRecords.length).toFixed(2);
                     setCurrentGPA(cumulativeGPA);
                 }
 
@@ -186,7 +188,7 @@ export const Dashboard: React.FC = () => {
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                             {/* Show courses from the most recent semester record */}
-                            {records[0].courses.slice(0, 4).map((course: any, idx: number) => (
+                            {records[0].courses.slice(0, 4).map((course: Course, idx: number) => (
                                 <div key={idx} style={{
                                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                                     padding: '1rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px',

@@ -8,10 +8,12 @@ import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
 import { ref, onValue, remove } from 'firebase/database';
 
+import type { GPARecord } from '../types';
+
 export const GPAHistory: React.FC = () => {
     const navigate = useNavigate();
     const { currentUser } = useAuth();
-    const [records, setRecords] = useState<any[]>([]);
+    const [records, setRecords] = useState<GPARecord[]>([]);
 
     useEffect(() => {
         if (!currentUser) return;
@@ -19,7 +21,7 @@ export const GPAHistory: React.FC = () => {
         onValue(recordsRef, (snapshot) => {
             const data = snapshot.val();
             if (data) {
-                const list = Object.entries(data).map(([key, val]: [string, any]) => ({
+                const list: GPARecord[] = Object.entries(data).map(([key, val]: [string, any]) => ({
                     id: key,
                     ...val,
                     credits: val.courses ? val.courses.reduce((acc: number, c: any) => acc + c.credits, 0) : 0
