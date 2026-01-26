@@ -9,17 +9,20 @@ import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
 import { ref, onValue, update } from 'firebase/database';
 
+import type { UserProfile, FirebaseError } from '../types';
+
 export const Profile: React.FC = () => {
     const navigate = useNavigate();
     const { currentUser } = useAuth();
     const [loading, setLoading] = useState(false);
 
-    const [formData, setFormData] = useState({
+    const [formData, setFormData] = useState<UserProfile>({
         name: '',
+        email: '',
         indexNo: '',
+        dob: '',
         university: '',
         degree: '',
-        dob: '',
         startDate: '',
         endDate: '',
         duration: 4,
@@ -32,6 +35,7 @@ export const Profile: React.FC = () => {
         onValue(profileRef, (snapshot) => {
             const data = snapshot.val();
             if (data) {
+                // eslint-disable-next-line @typescript-eslint/no-unused-vars
                 const { photoURL, ...rest } = data;
                 setFormData(prev => ({
                     ...prev,
@@ -53,9 +57,10 @@ export const Profile: React.FC = () => {
         try {
             await update(ref(db, `users/${currentUser.uid}/profile`), formData);
             alert("Profile updated successfully!");
-        } catch (error: any) {
+        } catch (error) {
             console.error(error);
-            alert("Failed to update profile: " + error.message);
+            const err = error as FirebaseError;
+            alert("Failed to update profile: " + (err.message || "Unknown error"));
         } finally {
             setLoading(false);
         }

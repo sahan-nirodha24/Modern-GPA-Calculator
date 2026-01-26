@@ -8,7 +8,7 @@ import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
 import { ref, onValue, remove } from 'firebase/database';
 
-import type { GPARecord } from '../types';
+import type { GPARecord, Course } from '../types';
 
 export const GPAHistory: React.FC = () => {
     const navigate = useNavigate();
@@ -24,7 +24,7 @@ export const GPAHistory: React.FC = () => {
                 const list: GPARecord[] = Object.entries(data).map(([key, val]: [string, any]) => ({
                     id: key,
                     ...val,
-                    credits: val.courses ? val.courses.reduce((acc: number, c: any) => acc + c.credits, 0) : 0
+                    credits: val.courses ? val.courses.reduce((acc: number, c: Course) => acc + c.credits, 0) : 0
                 }));
                 // Sort by timestamp desc
                 list.sort((a, b) => b.timestamp - a.timestamp);

@@ -8,12 +8,14 @@ import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
 import { ref, onValue } from 'firebase/database';
 
+import type { UserProfile, GPARecord, Course } from '../types';
+
 export const Transcript: React.FC = () => {
     const navigate = useNavigate();
     const { currentUser } = useAuth();
 
-    const [profile, setProfile] = useState<any>(null);
-    const [groupedRecords, setGroupedRecords] = useState<any[]>([]);
+    const [profile, setProfile] = useState<UserProfile | null>(null);
+    const [groupedRecords, setGroupedRecords] = useState<GPARecord[]>([]);
     const [finalGPA, setFinalGPA] = useState('0.00');
     const [totalCredits, setTotalCredits] = useState(0);
 
@@ -29,14 +31,14 @@ export const Transcript: React.FC = () => {
         onValue(recordsRef, (snapshot) => {
             const data = snapshot.val();
             if (data) {
-                const loadedRecords: any[] = Object.values(data);
+                const loadedRecords: GPARecord[] = Object.values(data);
                 // Group by Year/Semester if multiple entries
                 // Assuming data is already 'per semester' entries from AddGPA
 
                 // Sort by Year then Semester
                 loadedRecords.sort((a, b) => {
-                    if (a.year !== b.year) return a.year - b.year;
-                    return a.semester - b.semester;
+                    if (a.year !== b.year) return Number(a.year) - Number(b.year);
+                    return Number(a.semester) - Number(b.semester);
                 });
 
                 setGroupedRecords(loadedRecords);
@@ -47,7 +49,7 @@ export const Transcript: React.FC = () => {
                     let sumCredits = 0;
                     loadedRecords.forEach(rec => {
                         sumGPA += rec.gpa;
-                        rec.courses.forEach((c: any) => sumCredits += c.credits);
+                        rec.courses.forEach((c: Course) => sumCredits += c.credits);
                     });
 
                     setFinalGPA((sumGPA / loadedRecords.length).toFixed(2));
@@ -129,7 +131,7 @@ export const Transcript: React.FC = () => {
                                             </tr>
                                         </thead>
                                         <tbody>
-                                            {sem.courses.map((course: any, idx: number) => (
+                                            {sem.courses.map((course: Course, idx: number) => (
                                                 <tr key={idx}>
                                                     <td style={{ padding: '0.6rem 0.75rem', border: '1px solid var(--border)', wordWrap: 'break-word' }}>{course.name}</td>
                                                     <td style={{ padding: '0.6rem 0.75rem', border: '1px solid var(--border)', textAlign: 'center' }}>{course.credits}</td>

@@ -27,3 +27,8 @@ export interface UserProfile {
     duration: number;
     totalCredits: number;
 }
+
+export interface FirebaseError {
+    code?: string;
+    message?: string;
+}

@@ -9,7 +9,7 @@ import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
 import { ref, onValue } from 'firebase/database';
 
-import type { UserProfile, GPARecord, Course } from '../types.ts';
+import type { UserProfile, GPARecord, Course } from '../types';
 
 export const Dashboard: React.FC = () => {
     const navigate = useNavigate();
@@ -18,7 +18,9 @@ export const Dashboard: React.FC = () => {
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [records, setRecords] = useState<GPARecord[]>([]);
 
-    const [showLoginSuccess, setShowLoginSuccess] = useState(false);
+    const [showLoginSuccess, setShowLoginSuccess] = useState(() => {
+        return !!location.state?.loginSuccess;
+    });
 
     // Stats
     const [currentGPA, setCurrentGPA] = useState('0.00');
@@ -28,18 +30,12 @@ export const Dashboard: React.FC = () => {
     const [chartData, setChartData] = useState<{ year: string; gpa: number }[]>([]);
 
     useEffect(() => {
-        if (location.state?.loginSuccess) {
-            setShowLoginSuccess(true);
-            // Clear the state so it doesn't show again on refresh if possible, 
-            // though react-router state persists. We'll just rely on the timer.
+        if (showLoginSuccess) {
             const timer = setTimeout(() => setShowLoginSuccess(false), 3000);
-
-            // Clean up state (optional, but good for UX)
             window.history.replaceState({}, document.title);
-
             return () => clearTimeout(timer);
         }
-    }, [location]);
+    }, [showLoginSuccess]);
 
     useEffect(() => {
         if (!currentUser) return;
@@ -66,7 +62,7 @@ export const Dashboard: React.FC = () => {
                 // Calculate Stats
                 // let totalPoints = 0; // Unused for now
                 let credits = 0;
-                let gpaBySem: { year: string; gpa: number }[] = []; // Simple implementation, can be improved
+                const gpaBySem: { year: string; gpa: number }[] = []; // Simple implementation, can be improved
 
                 loadedRecords.forEach((rec) => {
                     /* In a real app we'd recalculate everything accurately, 
@@ -232,7 +228,14 @@ export const Dashboard: React.FC = () => {
     );
 };
 
-const StatCard = ({ icon, title, value, gradient }: any) => (
+interface StatCardProps {
+    icon: React.ReactNode;
+    title: string;
+    value: string | number;
+    gradient?: string;
+}
+
+const StatCard = ({ icon, title, value, gradient }: StatCardProps) => (
     <Card className="flex-center" style={{
         justifyContent: 'flex-start',
         gap: '1.25rem',

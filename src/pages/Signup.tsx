@@ -57,14 +57,15 @@ export const Signup: React.FC = () => {
             });
 
             navigate('/dashboard');
-        } catch (error: any) {
-            console.error(error);
-            if (error.code === 'auth/email-already-in-use') {
+        } catch (error) {
+            const err = error as any;
+            console.error(err);
+            if (err.code === 'auth/email-already-in-use') {
                 setError("This email is already registered. Please login instead.");
-            } else if (error.code === 'auth/weak-password') {
+            } else if (err.code === 'auth/weak-password') {
                 setError("Password should be at least 6 characters.");
             } else {
-                setError(error.message);
+                setError(err.message || "Failed to create account");
             }
         } finally {
             setLoading(false);
