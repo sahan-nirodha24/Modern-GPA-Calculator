@@ -15,7 +15,6 @@ interface CourseNode {
     name: string;
     credits: number;
     grade: string;
-    isRepeat?: boolean;
 }
 
 export const AddGPA: React.FC = () => {
@@ -24,7 +23,7 @@ export const AddGPA: React.FC = () => {
     const [loading, setLoading] = useState(false);
 
     const [courses, setCourses] = useState<CourseNode[]>([
-        { id: 1, name: '', credits: 3, grade: 'A', isRepeat: false }
+        { id: 1, name: '', credits: 3, grade: 'A' }
     ]);
     const [semester, setSemester] = useState('1');
     const [year, setYear] = useState('1');
@@ -56,14 +55,14 @@ export const AddGPA: React.FC = () => {
                 }
             } else {
                 // Reset to default if no record exists
-                setCourses([{ id: Date.now(), name: '', credits: 3, grade: 'A', isRepeat: false }]);
+                setCourses([{ id: Date.now(), name: '', credits: 3, grade: 'A' }]);
             }
         }).catch((err) => console.error("Error fetching record:", err));
 
     }, [currentUser, year, semester]);
 
     const addCourse = () => {
-        setCourses([...courses, { id: Date.now(), name: '', credits: 3, grade: 'A', isRepeat: false }]);
+        setCourses([...courses, { id: Date.now(), name: '', credits: 3, grade: 'A' }]);
     };
 
     const removeCourse = (id: number) => {
@@ -72,7 +71,7 @@ export const AddGPA: React.FC = () => {
         }
     };
 
-    const updateCourse = (id: number, field: keyof CourseNode, value: string | number | boolean) => {
+    const updateCourse = (id: number, field: keyof CourseNode, value: string | number) => {
         setCourses(courses.map(c => c.id === id ? { ...c, [field]: value } : c));
     };
 
@@ -124,7 +123,7 @@ export const AddGPA: React.FC = () => {
                 </Button>
             </div>
 
-            <div style={{ maxWidth: '850px', margin: '0 auto' }}>
+            <div style={{ maxWidth: '800px', margin: '0 auto' }}>
                 <Card title="Add New GPA Record">
                     <form onSubmit={handleSubmit}>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
@@ -149,8 +148,8 @@ export const AddGPA: React.FC = () => {
                                     key={course.id}
                                     style={{
                                         display: 'grid',
-                                        gridTemplateColumns: '2fr 1fr 1.2fr 1fr auto',
-                                        gap: '0.75rem',
+                                        gridTemplateColumns: '2fr 1fr 1fr auto',
+                                        gap: '1rem',
                                         alignItems: 'end',
                                         padding: '0.5rem 0',
                                         borderBottom: '1px solid var(--border)'
@@ -187,28 +186,6 @@ export const AddGPA: React.FC = () => {
                                                 </option>
                                             ))}
                                         </select>
-                                    </div>
-                                    <div className="form-group">
-                                        {index === 0 && <label className="label">Repeat?</label>}
-                                        <label
-                                            title="Section 18: Maximum grade given for repeat is C (2.00)"
-                                            style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                gap: '0.4rem',
-                                                fontSize: '0.85rem',
-                                                height: '42px',
-                                                cursor: 'pointer',
-                                                color: course.isRepeat ? '#f59e0b' : 'var(--text-muted)'
-                                            }}
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                checked={!!course.isRepeat}
-                                                onChange={e => updateCourse(course.id, 'isRepeat', e.target.checked)}
-                                            />
-                                            {course.isRepeat ? 'Repeat (Max C)' : 'No'}
-                                        </label>
                                     </div>
                                     <Button
                                         type="button"

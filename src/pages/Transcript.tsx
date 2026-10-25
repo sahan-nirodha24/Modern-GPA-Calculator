@@ -6,7 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
 import { ref, onValue } from 'firebase/database';
-import { determineClass, calculateCumulativeGPA, calculateGPA, getEffectiveGPV } from '../utils/grades';
+import { determineClass, calculateCumulativeGPA, calculateGPA, GRADE_POINTS } from '../utils/grades';
 import type { UserProfile, GPARecord, Course } from '../types';
 
 export const Transcript: React.FC = () => {
@@ -153,17 +153,12 @@ export const Transcript: React.FC = () => {
                                             </thead>
                                             <tbody>
                                                 {sem.courses?.map((course: Course, idx: number) => {
-                                                    const gpv = getEffectiveGPV(course.grade, course.isRepeat);
+                                                    const gpv = GRADE_POINTS[course.grade] ?? 0;
                                                     const isPass = gpv >= 1.70; // C- is minimum pass
                                                     return (
                                                         <tr key={idx}>
                                                             <td style={{ padding: '0.6rem 0.75rem', border: '1px solid var(--border)', wordWrap: 'break-word' }}>
                                                                 {course.name}
-                                                                {course.isRepeat && (
-                                                                    <span style={{ color: '#f59e0b', fontSize: '0.8rem', marginLeft: '0.5rem' }}>
-                                                                        (Repeat)
-                                                                    </span>
-                                                                )}
                                                             </td>
                                                             <td style={{ padding: '0.6rem 0.75rem', border: '1px solid var(--border)', textAlign: 'center' }}>{course.credits}</td>
                                                             <td style={{ padding: '0.6rem 0.75rem', border: '1px solid var(--border)', textAlign: 'center', fontWeight: 'bold' }}>{course.grade}</td>

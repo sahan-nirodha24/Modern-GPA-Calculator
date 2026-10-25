@@ -229,7 +229,7 @@ export const Dashboard: React.FC = () => {
                                         </div>
                                         <div>
                                             <p className="font-medium">
-                                                {course.name} {course.isRepeat && <span style={{ color: '#f59e0b', fontSize: '0.75rem' }}>(Repeat)</span>}
+                                                {course.name}
                                             </p>
                                             <p className="text-sm text-muted">{course.credits} Credits</p>
                                         </div>

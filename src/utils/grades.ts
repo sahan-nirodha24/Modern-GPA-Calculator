@@ -16,26 +16,15 @@ export const GRADE_POINTS: Record<string, number> = {
 };
 
 /**
- * Section 18(c, d, e): Repeat examinations are capped at a maximum grade of 'C' (2.00 GPV).
- */
-export const getEffectiveGPV = (grade: string, isRepeat = false): number => {
-    const points = GRADE_POINTS[grade] ?? 0;
-    if (isRepeat) {
-        return Math.min(points, 2.00);
-    }
-    return points;
-};
-
-/**
  * Calculate GPA for a list of courses in a semester.
- * Returns formatted 2 decimal places string or 0 if no credits.
+ * Returns formatted 2 decimal places string or "0.00" if no credits.
  */
-export const calculateGPA = (courses: { credits: number; grade: string; isRepeat?: boolean }[]): string => {
+export const calculateGPA = (courses: { credits: number; grade: string }[]): string => {
     let totalPoints = 0;
     let totalCredits = 0;
 
     courses.forEach(course => {
-        const points = getEffectiveGPV(course.grade, course.isRepeat);
+        const points = GRADE_POINTS[course.grade] ?? 0;
         totalPoints += points * course.credits;
         totalCredits += course.credits;
     });
@@ -61,7 +50,7 @@ export const calculateCumulativeGPA = (records: GPARecord[]): {
         if (rec.courses && Array.isArray(rec.courses) && rec.courses.length > 0) {
             rec.courses.forEach(c => {
                 const cred = Number(c.credits) || 0;
-                const points = getEffectiveGPV(c.grade, c.isRepeat);
+                const points = GRADE_POINTS[c.grade] ?? 0;
                 totalWeightedPoints += cred * points;
                 totalCredits += cred;
 
