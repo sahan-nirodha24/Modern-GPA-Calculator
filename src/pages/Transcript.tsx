@@ -147,7 +147,7 @@ export const Transcript: React.FC = () => {
                                                     <th style={{ padding: '0.75rem', border: '1px solid var(--border)' }}>Course Name / Code</th>
                                                     <th style={{ padding: '0.75rem', border: '1px solid var(--border)', textAlign: 'center' }}>Credits</th>
                                                     <th style={{ padding: '0.75rem', border: '1px solid var(--border)', textAlign: 'center' }}>Grade</th>
-                                                    <th style={{ padding: '0.75rem', border: '1px solid var(--border)', textAlign: 'center' }}>GPV</th>
+                                                    <th style={{ padding: '0.75rem', border: '1px solid var(--border)', textAlign: 'center' }}>GPA</th>
                                                     <th style={{ padding: '0.75rem', border: '1px solid var(--border)', textAlign: 'center' }}>Status</th>
                                                 </tr>
                                             </thead>
