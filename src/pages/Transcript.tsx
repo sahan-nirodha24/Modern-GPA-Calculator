@@ -1,19 +1,17 @@
 import React, { useEffect, useState } from 'react';
 import { Layout } from '../components/Layout';
 import { Button } from '../components/Button';
-import { Printer, ArrowLeft, Download } from 'lucide-react';
+import { ArrowLeft, Printer, Download, CheckCircle, AlertCircle } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { determineClass } from '../utils/grades';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
 import { ref, onValue } from 'firebase/database';
-
+import { determineClass, calculateCumulativeGPA, calculateGPA, getEffectiveGPV } from '../utils/grades';
 import type { UserProfile, GPARecord, Course } from '../types';
 
 export const Transcript: React.FC = () => {
     const navigate = useNavigate();
     const { currentUser } = useAuth();
-
     const [profile, setProfile] = useState<UserProfile | null>(null);
     const [groupedRecords, setGroupedRecords] = useState<GPARecord[]>([]);
     const [finalGPA, setFinalGPA] = useState('0.00');
@@ -32,8 +30,6 @@ export const Transcript: React.FC = () => {
             const data = snapshot.val();
             if (data) {
                 const loadedRecords: GPARecord[] = Object.values(data);
-                // Group by Year/Semester if multiple entries
-                // Assuming data is already 'per semester' entries from AddGPA
 
                 // Sort by Year then Semester
                 loadedRecords.sort((a, b) => {
@@ -43,18 +39,14 @@ export const Transcript: React.FC = () => {
 
                 setGroupedRecords(loadedRecords);
 
-                // Calculate cumulative stats
-                if (loadedRecords.length > 0) {
-                    let sumGPA = 0;
-                    let sumCredits = 0;
-                    loadedRecords.forEach(rec => {
-                        sumGPA += rec.gpa;
-                        rec.courses.forEach((c: Course) => sumCredits += c.credits);
-                    });
-
-                    setFinalGPA((sumGPA / loadedRecords.length).toFixed(2));
-                    setTotalCredits(sumCredits);
-                }
+                // Section 19: Calculate credit-weighted Cumulative GPA
+                const stats = calculateCumulativeGPA(loadedRecords);
+                setFinalGPA(stats.cgpa);
+                setTotalCredits(stats.totalCredits);
+            } else {
+                setGroupedRecords([]);
+                setFinalGPA('0.00');
+                setTotalCredits(0);
             }
         });
 
@@ -66,7 +58,15 @@ export const Transcript: React.FC = () => {
 
     if (!profile) return <Layout><div className="p-4 text-center">Loading transcript...</div></Layout>;
 
-    const finalClass = determineClass(parseFloat(finalGPA), profile.duration || 4);
+    // Collect all courses for Degree Class evaluation
+    const allCourses: Course[] = [];
+    groupedRecords.forEach(rec => {
+        if (rec.courses && Array.isArray(rec.courses)) {
+            allCourses.push(...rec.courses);
+        }
+    });
+
+    const finalClass = determineClass(parseFloat(finalGPA), profile.duration || 4, allCourses);
 
     return (
         <Layout>
@@ -88,8 +88,9 @@ export const Transcript: React.FC = () => {
 
                 {/* Header */}
                 <div className="text-center mb-8" style={{ borderBottom: '2px solid var(--text-main)', paddingBottom: '1rem' }}>
-                    <h1 style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>{profile.university || 'UNIVERSITY OF EXCELLENCE'}</h1>
-                    <p style={{ fontSize: '1.2rem', color: 'var(--text-muted)' }}> OFFICIAL ACADEMIC TRANSCRIPT</p>
+                    <h1 style={{ fontSize: '2.5rem', fontWeight: 'bold', marginBottom: '0.5rem' }}>{profile.university || 'HORIZON CAMPUS'}</h1>
+                    <p style={{ fontSize: '1.2rem', color: 'var(--text-muted)' }}>OFFICIAL ACADEMIC TRANSCRIPT</p>
+                    <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>Undergraduate Degree By-Laws (UGC Circular No. 901)</p>
                 </div>
 
                 {/* Student Details */}
@@ -112,52 +113,99 @@ export const Transcript: React.FC = () => {
                         <p className="text-center text-muted">No academic records found.</p>
                     ) : (
                         <div>
-                            {groupedRecords.map((sem, index) => (
-                                <div key={index} style={{ marginBottom: '2rem' }}>
-                                    <h3 style={{ borderBottom: '1px solid var(--border)', paddingBottom: '0.5rem', marginBottom: '1rem', fontFamily: 'sans-serif' }}>
-                                        Year {sem.year} - Semester {sem.semester}
-                                    </h3>
-                                    <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '1rem', tableLayout: 'fixed' }}>
-                                        <colgroup>
-                                            <col style={{ width: '50%' }} />
-                                            <col style={{ width: '25%' }} />
-                                            <col style={{ width: '25%' }} />
-                                        </colgroup>
-                                        <thead>
-                                            <tr style={{ background: 'var(--surface-hover)', textAlign: 'left', borderBottom: '2px solid var(--border)' }}>
-                                                <th style={{ padding: '0.75rem', border: '1px solid var(--border)' }}>Course Name</th>
-                                                <th style={{ padding: '0.75rem', border: '1px solid var(--border)', textAlign: 'center' }}>Credits</th>
-                                                <th style={{ padding: '0.75rem', border: '1px solid var(--border)', textAlign: 'center' }}>Grade</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {sem.courses.map((course: Course, idx: number) => (
-                                                <tr key={idx}>
-                                                    <td style={{ padding: '0.6rem 0.75rem', border: '1px solid var(--border)', wordWrap: 'break-word' }}>{course.name}</td>
-                                                    <td style={{ padding: '0.6rem 0.75rem', border: '1px solid var(--border)', textAlign: 'center' }}>{course.credits}</td>
-                                                    <td style={{ padding: '0.6rem 0.75rem', border: '1px solid var(--border)', textAlign: 'center' }}>{course.grade}</td>
+                            {groupedRecords.map((sem, index) => {
+                                const semCredits = sem.courses?.reduce((acc, c) => acc + (Number(c.credits) || 0), 0) || 0;
+                                const semGPA = calculateGPA(sem.courses || []);
+                                return (
+                                    <div key={index} style={{ marginBottom: '2rem' }}>
+                                        <div style={{
+                                            display: 'flex',
+                                            justifyContent: 'space-between',
+                                            alignItems: 'center',
+                                            borderBottom: '1px solid var(--border)',
+                                            paddingBottom: '0.5rem',
+                                            marginBottom: '1rem',
+                                            fontFamily: 'sans-serif'
+                                        }}>
+                                            <h3 style={{ margin: 0, fontWeight: 700 }}>
+                                                Year {sem.year} - Semester {sem.semester}
+                                            </h3>
+                                            <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)' }}>
+                                                Credits: <strong>{semCredits}</strong> | Semester GPA: <strong style={{ color: 'var(--primary)' }}>{semGPA}</strong>
+                                            </span>
+                                        </div>
+                                        <table style={{ width: '100%', borderCollapse: 'collapse', marginBottom: '1rem', tableLayout: 'fixed' }}>
+                                            <colgroup>
+                                                <col style={{ width: '45%' }} />
+                                                <col style={{ width: '15%' }} />
+                                                <col style={{ width: '15%' }} />
+                                                <col style={{ width: '15%' }} />
+                                                <col style={{ width: '10%' }} />
+                                            </colgroup>
+                                            <thead>
+                                                <tr style={{ background: 'var(--surface-hover)', textAlign: 'left', borderBottom: '2px solid var(--border)' }}>
+                                                    <th style={{ padding: '0.75rem', border: '1px solid var(--border)' }}>Course Name / Code</th>
+                                                    <th style={{ padding: '0.75rem', border: '1px solid var(--border)', textAlign: 'center' }}>Credits</th>
+                                                    <th style={{ padding: '0.75rem', border: '1px solid var(--border)', textAlign: 'center' }}>Grade</th>
+                                                    <th style={{ padding: '0.75rem', border: '1px solid var(--border)', textAlign: 'center' }}>GPV</th>
+                                                    <th style={{ padding: '0.75rem', border: '1px solid var(--border)', textAlign: 'center' }}>Status</th>
                                                 </tr>
-                                            ))}
-                                        </tbody>
-                                    </table>
-                                </div>
-                            ))}
+                                            </thead>
+                                            <tbody>
+                                                {sem.courses?.map((course: Course, idx: number) => {
+                                                    const gpv = getEffectiveGPV(course.grade, course.isRepeat);
+                                                    const isPass = gpv >= 1.70; // C- is minimum pass
+                                                    return (
+                                                        <tr key={idx}>
+                                                            <td style={{ padding: '0.6rem 0.75rem', border: '1px solid var(--border)', wordWrap: 'break-word' }}>
+                                                                {course.name}
+                                                                {course.isRepeat && (
+                                                                    <span style={{ color: '#f59e0b', fontSize: '0.8rem', marginLeft: '0.5rem' }}>
+                                                                        (Repeat)
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                            <td style={{ padding: '0.6rem 0.75rem', border: '1px solid var(--border)', textAlign: 'center' }}>{course.credits}</td>
+                                                            <td style={{ padding: '0.6rem 0.75rem', border: '1px solid var(--border)', textAlign: 'center', fontWeight: 'bold' }}>{course.grade}</td>
+                                                            <td style={{ padding: '0.6rem 0.75rem', border: '1px solid var(--border)', textAlign: 'center' }}>{gpv.toFixed(2)}</td>
+                                                            <td style={{ padding: '0.6rem 0.75rem', border: '1px solid var(--border)', textAlign: 'center' }}>
+                                                                {isPass ? (
+                                                                    <span style={{ color: '#16a34a', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.8rem' }}>
+                                                                        <CheckCircle size={14} /> Pass
+                                                                    </span>
+                                                                ) : (
+                                                                    <span style={{ color: '#dc2626', display: 'inline-flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.8rem' }} title="Must be at least C- to graduate">
+                                                                        <AlertCircle size={14} /> Repeat
+                                                                    </span>
+                                                                )}
+                                                            </td>
+                                                        </tr>
+                                                    );
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
                 </div>
 
                 {/* Final Summary */}
-                <div style={{ borderTop: '2px solid var(--text-main)', paddingTop: '2rem', marginTop: '4rem' }}>
+                <div style={{ borderTop: '2px solid var(--text-main)', paddingTop: '2rem', marginTop: '3rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end' }}>
                         <div>
-                            <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Final Standing</h2>
-                            <p>Total Credits Earned: {totalCredits}</p>
-                            <p>Cumulative GPA: <strong>{finalGPA}</strong></p>
-                            <p>Class Obtained: <strong>{finalClass}</strong></p>
+                            <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>Final Academic Standing</h2>
+                            <p>Total Credits Earned: <strong>{totalCredits}</strong></p>
+                            <p>Final Cumulative GPA (Credit-Weighted): <strong>{finalGPA}</strong></p>
+                            <p>Class / Award: <strong>{finalClass}</strong></p>
+                            <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+                                * Computed in accordance with Horizon Campus BIT (Hons.) in NMC By-Laws (Section 19 & 21).
+                            </p>
                         </div>
                         <div style={{ textAlign: 'center' }}>
-                            <div style={{ width: '150px', borderBottom: '1px solid var(--text-main)', marginBottom: '0.5rem' }}></div>
-                            <p>Registrar Signature</p>
+                            <div style={{ width: '180px', borderBottom: '1px solid var(--text-main)', marginBottom: '0.5rem' }}></div>
+                            <p style={{ fontSize: '0.9rem' }}>Registrar / Authorized Signature</p>
                         </div>
                     </div>
                 </div>

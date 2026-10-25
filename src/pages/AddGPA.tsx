@@ -6,17 +6,17 @@ import { Button } from '../components/Button';
 import { Trash2, Plus, ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { GRADE_POINTS, calculateGPA } from '../utils/grades';
+import { db } from '../firebase';
+import { ref, onValue, set, get } from 'firebase/database';
+import { useAuth } from '../context/AuthContext';
 
 interface CourseNode {
     id: number;
     name: string;
     credits: number;
     grade: string;
+    isRepeat?: boolean;
 }
-
-import { db } from '../firebase';
-import { ref, onValue, set, get } from 'firebase/database';
-import { useAuth } from '../context/AuthContext';
 
 export const AddGPA: React.FC = () => {
     const navigate = useNavigate();
@@ -24,7 +24,7 @@ export const AddGPA: React.FC = () => {
     const [loading, setLoading] = useState(false);
 
     const [courses, setCourses] = useState<CourseNode[]>([
-        { id: 1, name: '', credits: 3, grade: 'A' }
+        { id: 1, name: '', credits: 3, grade: 'A', isRepeat: false }
     ]);
     const [semester, setSemester] = useState('1');
     const [year, setYear] = useState('1');
@@ -56,14 +56,14 @@ export const AddGPA: React.FC = () => {
                 }
             } else {
                 // Reset to default if no record exists
-                setCourses([{ id: Date.now(), name: '', credits: 3, grade: 'A' }]);
+                setCourses([{ id: Date.now(), name: '', credits: 3, grade: 'A', isRepeat: false }]);
             }
         }).catch((err) => console.error("Error fetching record:", err));
 
     }, [currentUser, year, semester]);
 
     const addCourse = () => {
-        setCourses([...courses, { id: Date.now(), name: '', credits: 3, grade: 'A' }]);
+        setCourses([...courses, { id: Date.now(), name: '', credits: 3, grade: 'A', isRepeat: false }]);
     };
 
     const removeCourse = (id: number) => {
@@ -72,9 +72,12 @@ export const AddGPA: React.FC = () => {
         }
     };
 
-    const updateCourse = (id: number, field: keyof CourseNode, value: string | number) => {
+    const updateCourse = (id: number, field: keyof CourseNode, value: string | number | boolean) => {
         setCourses(courses.map(c => c.id === id ? { ...c, [field]: value } : c));
     };
+
+    const currentSemesterGPA = calculateGPA(courses);
+    const totalSemesterCredits = courses.reduce((acc, c) => acc + (Number(c.credits) || 0), 0);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -89,7 +92,8 @@ export const AddGPA: React.FC = () => {
             year,
             semester,
             courses,
-            gpa: parseFloat(gpa as string),
+            gpa: parseFloat(gpa),
+            credits: totalSemesterCredits,
             timestamp: Date.now()
         };
 
@@ -120,7 +124,7 @@ export const AddGPA: React.FC = () => {
                 </Button>
             </div>
 
-            <div style={{ maxWidth: '800px', margin: '0 auto' }}>
+            <div style={{ maxWidth: '850px', margin: '0 auto' }}>
                 <Card title="Add New GPA Record">
                     <form onSubmit={handleSubmit}>
                         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '2rem' }}>
@@ -138,13 +142,23 @@ export const AddGPA: React.FC = () => {
                             </div>
                         </div>
 
-                        <h4 className="font-bold mb-2">Courses</h4>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '2rem' }}>
+                        <h4 className="font-bold mb-2">Courses (UGC Circular No. 901)</h4>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem', marginBottom: '1.5rem' }}>
                             {courses.map((course, index) => (
-                                <div key={course.id} style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 1fr auto', gap: '1rem', alignItems: 'end' }}>
+                                <div
+                                    key={course.id}
+                                    style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: '2fr 1fr 1.2fr 1fr auto',
+                                        gap: '0.75rem',
+                                        alignItems: 'end',
+                                        padding: '0.5rem 0',
+                                        borderBottom: '1px solid var(--border)'
+                                    }}
+                                >
                                     <Input
-                                        label={index === 0 ? "Course Name" : ""}
-                                        placeholder="e.g. Data Structures"
+                                        label={index === 0 ? "Course Name / Code" : ""}
+                                        placeholder="e.g. IT11013"
                                         value={course.name}
                                         onChange={e => updateCourse(course.id, 'name', e.target.value)}
                                         required
@@ -167,8 +181,34 @@ export const AddGPA: React.FC = () => {
                                             value={course.grade}
                                             onChange={e => updateCourse(course.id, 'grade', e.target.value)}
                                         >
-                                            {Object.keys(GRADE_POINTS).map(g => <option key={g} value={g}>{g}</option>)}
+                                            {Object.keys(GRADE_POINTS).map(g => (
+                                                <option key={g} value={g}>
+                                                    {g} ({GRADE_POINTS[g].toFixed(2)})
+                                                </option>
+                                            ))}
                                         </select>
+                                    </div>
+                                    <div className="form-group">
+                                        {index === 0 && <label className="label">Repeat?</label>}
+                                        <label
+                                            title="Section 18: Maximum grade given for repeat is C (2.00)"
+                                            style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '0.4rem',
+                                                fontSize: '0.85rem',
+                                                height: '42px',
+                                                cursor: 'pointer',
+                                                color: course.isRepeat ? '#f59e0b' : 'var(--text-muted)'
+                                            }}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={!!course.isRepeat}
+                                                onChange={e => updateCourse(course.id, 'isRepeat', e.target.checked)}
+                                            />
+                                            {course.isRepeat ? 'Repeat (Max C)' : 'No'}
+                                        </label>
                                     </div>
                                     <Button
                                         type="button"
@@ -186,6 +226,26 @@ export const AddGPA: React.FC = () => {
                         <Button type="button" variant="secondary" onClick={addCourse} className="mb-4" fullWidth>
                             <Plus size={18} className="mr-2" /> Add Another Course
                         </Button>
+
+                        <div style={{
+                            display: 'flex',
+                            justifyContent: 'space-between',
+                            alignItems: 'center',
+                            padding: '1rem',
+                            background: 'var(--surface-hover)',
+                            borderRadius: '8px',
+                            marginBottom: '1rem',
+                            border: '1px solid var(--border)'
+                        }}>
+                            <div>
+                                <span className="text-muted" style={{ fontSize: '0.85rem' }}>Semester Credits:</span>
+                                <div><strong>{totalSemesterCredits}</strong></div>
+                            </div>
+                            <div style={{ textAlign: 'right' }}>
+                                <span className="text-muted" style={{ fontSize: '0.85rem' }}>Calculated Semester GPA:</span>
+                                <div><strong style={{ color: 'var(--primary)', fontSize: '1.3rem' }}>{currentSemesterGPA}</strong></div>
+                            </div>
+                        </div>
 
                         <div style={{ borderTop: '1px solid var(--border)', paddingTop: '1rem', marginTop: '1rem' }}>
                             <Button type="submit" fullWidth isLoading={loading}>Calculate & Save</Button>

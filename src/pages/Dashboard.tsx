@@ -2,12 +2,13 @@ import React, { useEffect, useState } from 'react';
 import { Layout } from '../components/Layout';
 import { Card } from '../components/Card';
 import { Button } from '../components/Button';
-import { Plus, BookOpen, Award, TrendingUp, Calendar } from 'lucide-react';
+import { Plus, BookOpen, Award, TrendingUp, Calendar, AlertTriangle } from 'lucide-react';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { db } from '../firebase';
 import { ref, onValue } from 'firebase/database';
+import { calculateCumulativeGPA, determineClass } from '../utils/grades';
 
 import type { UserProfile, GPARecord, Course } from '../types';
 
@@ -27,6 +28,7 @@ export const Dashboard: React.FC = () => {
     const [totalCredits, setTotalCredits] = useState(0);
     const [maxCredits, setMaxCredits] = useState(120);
     const [progress, setProgress] = useState(0);
+    const [unclearedCount, setUnclearedCount] = useState(0);
     const [chartData, setChartData] = useState<{ year: string; gpa: number }[]>([]);
 
     useEffect(() => {
@@ -39,7 +41,6 @@ export const Dashboard: React.FC = () => {
 
     useEffect(() => {
         if (!currentUser) return;
-        // ... rest of effect
 
         const profileRef = ref(db, `users/${currentUser.uid}/profile`);
         onValue(profileRef, (snapshot) => {
@@ -59,41 +60,45 @@ export const Dashboard: React.FC = () => {
                 loadedRecords.sort((a, b) => b.timestamp - a.timestamp);
                 setRecords(loadedRecords);
 
-                // Calculate Stats
-                // let totalPoints = 0; // Unused for now
-                let credits = 0;
-                const gpaBySem: { year: string; gpa: number }[] = []; // Simple implementation, can be improved
+                // Section 19: Credit-weighted Cumulative GPA Calculation
+                const stats = calculateCumulativeGPA(loadedRecords);
+                setCurrentGPA(stats.cgpa);
+                setTotalCredits(stats.totalCredits);
+                setUnclearedCount(stats.unclearedCount);
+                setProgress(Math.min(100, Math.round((stats.totalCredits / maxCredits) * 100)));
 
-                loadedRecords.forEach((rec) => {
-                    /* In a real app we'd recalculate everything accurately, 
-                       here we just sum up averages for demo or parse */
-                    // This part requires proper calculation logic reuse
-                    // For now, let's just assume records have pre-calculated GPA or we calculate weighted avg
-
-                    rec.courses.forEach((c: Course) => {
-                        // We need point values here which we might not have stored directly or need to lookup
-                        // Simplified: assuming we stored enough info or just aggregating credits
-                        credits += c.credits;
-                    });
-
-                    gpaBySem.push({ year: `Y${rec.year}S${rec.semester}`, gpa: rec.gpa });
+                // Sort chronologically for chart
+                const chronRecords = [...loadedRecords].sort((a, b) => {
+                    const semA = Number(a.year) * 2 + Number(a.semester);
+                    const semB = Number(b.year) * 2 + Number(b.semester);
+                    return semA - semB;
                 });
-
-                // Weighted Average GPA Calculation would go here
-                // Mocking current GPA update based on last record for simplicity in this step
-                if (loadedRecords.length > 0) {
-                    // logic to calc cumulative gpa
-                    const cumulativeGPA = (loadedRecords.reduce((acc, curr) => acc + curr.gpa, 0) / loadedRecords.length).toFixed(2);
-                    setCurrentGPA(cumulativeGPA);
-                }
-
-                setTotalCredits(credits);
-                setProgress(Math.min(100, Math.round((credits / maxCredits) * 100)));
+                const gpaBySem = chronRecords.map(rec => ({
+                    year: `Y${rec.year}S${rec.semester}`,
+                    gpa: rec.gpa
+                }));
                 setChartData(gpaBySem);
+            } else {
+                setRecords([]);
+                setCurrentGPA('0.00');
+                setTotalCredits(0);
+                setProgress(0);
+                setUnclearedCount(0);
+                setChartData([]);
             }
         });
 
     }, [currentUser, maxCredits]);
+
+    // Collect all courses for Degree Class check
+    const allCourses: Course[] = [];
+    records.forEach(r => {
+        if (r.courses && Array.isArray(r.courses)) {
+            allCourses.push(...r.courses);
+        }
+    });
+
+    const currentClass = determineClass(parseFloat(currentGPA), profile?.duration || 4, allCourses);
 
     return (
         <Layout>
@@ -114,7 +119,7 @@ export const Dashboard: React.FC = () => {
                         </div>
                     )}
                     <h1 className="text-xl font-bold">Student Dashboard</h1>
-                    <p className="text-muted">Welcome back {profile?.name}, check your progress</p>
+                    <p className="text-muted">Welcome back {profile?.name || 'Student'}, check your academic progress</p>
                 </div>
                 <div className="flex-center gap-2">
                     <Button variant="secondary" onClick={() => navigate('/transcript')}>
@@ -126,11 +131,31 @@ export const Dashboard: React.FC = () => {
                 </div>
             </div>
 
+            {unclearedCount > 0 && (
+                <div style={{
+                    marginBottom: '1.5rem',
+                    padding: '0.85rem 1.25rem',
+                    background: '#fef2f2',
+                    color: '#991b1b',
+                    borderRadius: '8px',
+                    border: '1px solid #fecaca',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '0.75rem',
+                    fontSize: '0.9rem'
+                }}>
+                    <AlertTriangle size={20} style={{ flexShrink: 0 }} />
+                    <div>
+                        <strong>Horizon By-Laws Notice (Section 20.g):</strong> You have {unclearedCount} course(s) with grades below C- (35%). All modules must be at least C- (1.70 GPV) to be eligible for degree award and class classification.
+                    </div>
+                </div>
+            )}
+
             {/* Stats Grid */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
                 <StatCard
                     icon={<Award size={28} />}
-                    title="Current GPA"
+                    title="Cumulative GPA (Section 19)"
                     value={currentGPA}
                     gradient="linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)"
                 />
@@ -142,14 +167,14 @@ export const Dashboard: React.FC = () => {
                 />
                 <StatCard
                     icon={<TrendingUp size={28} />}
-                    title="Progress"
-                    value={`${progress}%`}
+                    title="Degree Standing"
+                    value={records.length > 0 ? currentClass : 'Pending'}
                     gradient="linear-gradient(135deg, #f59e0b 0%, #d97706 100%)"
                 />
                 <StatCard
                     icon={<Calendar size={28} />}
-                    title="Graduation"
-                    value={profile?.duration ? new Date(profile.endDate).getFullYear() : '2026'}
+                    title="Graduation / Progress"
+                    value={`${progress}%`}
                     gradient="linear-gradient(135deg, #64748b 0%, #475569 100%)"
                 />
             </div>
@@ -184,7 +209,7 @@ export const Dashboard: React.FC = () => {
                     ) : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                             {/* Show courses from the most recent semester record */}
-                            {records[0].courses.slice(0, 4).map((course: Course, idx: number) => (
+                            {records[0].courses?.slice(0, 4).map((course: Course, idx: number) => (
                                 <div key={idx} style={{
                                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                                     padding: '1rem', background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: '12px',
@@ -203,7 +228,9 @@ export const Dashboard: React.FC = () => {
                                             {course.grade}
                                         </div>
                                         <div>
-                                            <p className="font-medium">{course.name}</p>
+                                            <p className="font-medium">
+                                                {course.name} {course.isRepeat && <span style={{ color: '#f59e0b', fontSize: '0.75rem' }}>(Repeat)</span>}
+                                            </p>
                                             <p className="text-sm text-muted">{course.credits} Credits</p>
                                         </div>
                                     </div>

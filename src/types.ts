@@ -3,6 +3,7 @@ export interface Course {
     name: string;
     credits: number;
     grade: string;
+    isRepeat?: boolean;
 }
 
 export interface GPARecord {
