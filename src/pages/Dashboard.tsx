@@ -155,7 +155,7 @@ export const Dashboard: React.FC = () => {
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
                 <StatCard
                     icon={<Award size={28} />}
-                    title="Cumulative GPA (Section 19)"
+                    title="Cumulative GPA"
                     value={currentGPA}
                     gradient="linear-gradient(135deg, #6366f1 0%, #4f46e5 100%)"
                 />
